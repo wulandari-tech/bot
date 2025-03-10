@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WANZOFC BOT</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #fff;
+            /*display: flex;  Hapus atau komentari ini */
+            /*justify-content: center; Hapus atau komentari ini */
+            /*align-items: center; Hapus atau komentari ini */
+            min-height: 100vh;
+            margin: 0;
+            /*overflow: hidden;  Hapus atau komentari ini */
+            padding-bottom: 20px; /* Ruang untuk footer (optional) */
+        }
+
+        /* Hapus atau komentari jika tidak diperlukan */
+        /* html, body {
+            height: auto;
+        } */
+
+        #chatbot-container {
+            width: 400px;
+            background-color: #222;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            position: relative;
+            margin: 20px auto; /* Center the container */
+        }
+
+        #chat-header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #chat-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        #chat-log {
+            padding: 15px;
+            height: 300px;
+            overflow-y: scroll;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 5px;
+            max-width: 70%;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: #fff;
+            align-self: flex-end;
+        }
+
+        .bot-message {
+            background-color: #444;
+            color: #eee;
+            align-self: flex-start;
+        }
+
+        #input-area {
+            display: flex;
+            padding: 10px;
+            background-color: #333;
+        }
+
+        #user-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            background-color: #555;
+            color: #fff;
+        }
+
+        #send-button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        #send-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Futuristic Styles */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #00f, #f00, #0f0, #00f);
+            background-size: 400% 400%;
+            z-index: -1;
+            animation: gradientAnimation 15s infinite;
+        }
+
+        @keyframes gradientAnimation {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Glow Effect on Chatbot Container */
+        #chatbot-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            background: linear-gradient(45deg, #00f, #f00, #0f0, #00f);
+            background-size: 400% 400%;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
+            z-index: -1;
+            animation: gradientAnimation 20s infinite;
+            border-radius: 10px;
+        }
+
+        #chatbot-container::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
+            background: #222;
+            border-radius: 10px;
+            z-index: -1;
+            filter: blur(20px);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="chatbot-container">
+        <div id="chat-header">
+            WANZOFC BOT
+        </div>
+        <div id="chat-log">
+            <div class="message bot-message">selamat datang! Ada yang bisa saya bantu?</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Ketik pesan Anda...">
+            <button id="send-button">Kirim</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <script>
+        const chatLog = document.getElementById('chat-log');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const chatbotContainer = document.getElementById('chatbot-container');
+
+        const backendUrl = '/api/chatbot';
+
+        // GSAP Animations
+        gsap.from("#chatbot-container", { opacity: 0, duration: 1, y: 50 });
+        gsap.from("#chat-header", { opacity: 0, duration: 0.8, y: -20, delay: 0.5 });
+        gsap.from("#chat-log", { opacity: 0, duration: 0.8, delay: 0.7 });
+        gsap.from("#input-area", { opacity: 0, duration: 0.8, y: 20, delay: 0.9 });
+
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const messageText = userInput.value.trim();
+            if (messageText !== '') {
+                addUserMessage(messageText);
+                await getBotResponse(messageText);
+                userInput.value = '';
+            }
+        }
+
+        function addUserMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'user-message');
+            messageElement.textContent = message;
+            chatLog.appendChild(messageElement);
+            scrollToBottom();
+        }
+
+        function addBotMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'bot-message');
+            messageElement.textContent = message;
+            chatLog.appendChild(messageElement);
+            scrollToBottom();
+        }
+
+        async function getBotResponse(userMessage) {
+            try {
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: userMessage })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addBotMessage(data.response);
+                } else {
+                    addBotMessage('Maaf, terjadi kesalahan: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error fetching bot response:', error);
+                addBotMessage('Maaf, saya tidak dapat terhubung ke server saat ini.');
+            }
+        }
+
+        function scrollToBottom() {
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>
