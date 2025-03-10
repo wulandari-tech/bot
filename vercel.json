@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "wanzofc.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "wanzofc.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "wanzofc.js"
+    }
+  ],
+  "functions": {
+    "server.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  }
+}
