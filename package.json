@@ -2,9 +2,9 @@
   "name": "chatbot-awanbrayy",
   "version": "1.0.0",
   "description": "A simple chatbot.",
-  "main": "server.js",
+  "main": "wanzofc.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node wanzofc.js"
   },
   "keywords": ["chatbot", "nodejs", "express", "openai"],
   "author": "AwanBrayy",
