@@ -11,8 +11,8 @@ app.use(express.static(path.join(__dirname))); // Serve static files from the cu
 
 app.post('/api/chatbot', async (req, res) => {
     const userMessage = req.body.message;
-    const apiKey = 'pFNEsmWg'; // Ganti dengan API key Anda jika berbeda
-    const apiUrl = `https://wanzofc.us.kg/api/ai/gpt3?prompt=${encodeURIComponent('kamu adalah wanzofc yang sangat toxic dan kasar dan sopan santun dan gunakan emoji juga dan menggunakan huruf kecil juga')}&content=${encodeURIComponent(userMessage)}&apikey=${apiKey}`;
+    const apiKey = 'C68xIhWt'; // Ganti dengan API key Anda jika berbeda
+    const apiUrl = `https://api.only-awan.biz.id/api/ai/gpt3?prompt=${encodeURIComponent('kamu adalah wanzofc yang sangat toxic dan kasar dan sopan santun dan gunakan emoji juga dan menggunakan huruf kecil juga')}&content=${encodeURIComponent(userMessage)}&apikey=${apiKey}`;
 
     try {
         const response = await fetch(apiUrl);
