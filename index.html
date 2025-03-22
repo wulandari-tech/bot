@@ -1,199 +1,309 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WANZOFC BOT </title>
+    <title>Wanzofc AI Chat</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --primary-color: #007bff; --secondary-color: #6c757d; --bg-color: #121212; --bg-color-alt: #222; --text-color: #fff; --text-color-alt: #eee; --input-bg-color: #333; --button-hover-color: #0056b3; --glow-color: rgba(0, 123, 255, 0.5); --typing-dot-color: #eee; --suggestion-bg-color: #444; --suggestion-hover-color: #555;  --header-height: 60px; }
-        body.light-mode { --primary-color: #007bff; --secondary-color: #6c757d; --bg-color: #f8f9fa; --bg-color-alt: #fff; --text-color: #212529; --text-color-alt: #495057; --input-bg-color: #eee; --button-hover-color: #0056b3; --glow-color: rgba(0, 123, 255, 0.3); --typing-dot-color: #444; --suggestion-bg-color: #eee; --suggestion-hover-color: #ddd;}
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 0 20px; }
-        #chatbot-container { width: 100%; max-width: 600px; height: 80vh; background-color: var(--bg-color-alt); border-radius: 20px; box-shadow: 0 0 30px rgba(0, 0, 0, 0.6); overflow: hidden; position: relative; display: flex; flex-direction: column; }
-        #chatbot-container::before { content: ''; position: absolute; top: -5px; left: -5px; width: calc(100% + 10px); height: calc(100% + 10px); background: linear-gradient(45deg, var(--primary-color), #f00, #0f0, var(--primary-color)); background-size: 400% 400%; z-index: -1; animation: gradientAnimation 20s infinite linear; border-radius: 25px; opacity: 0.7; }
-        @keyframes gradientAnimation { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        #chat-header { background-color: var(--bg-color-alt); color: var(--text-color); padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; height: var(--header-height); border-bottom: 2px solid var(--primary-color); }
-        .header-icon { font-size: 1.5rem; margin-right: 10px; }
-        .header-title { font-size: 1.3rem; font-weight: bold; flex-grow: 1; }
-        .header-buttons button { background: none; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer; margin-left: 10px; transition: color 0.3s; }
-        .header-buttons button:hover { color: var(--primary-color); }
-        #chat-log { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .message { margin-bottom: 15px; padding: 12px 18px; border-radius: 25px; max-width: 80%; word-wrap: break-word; position: relative; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); }
-        .user-message { background-color: var(--primary-color); color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
-        .bot-message { background-color: var(--secondary-color); color: var(--text-color-alt); align-self: flex-start; border-bottom-left-radius: 5px; }
-        .typing { display: flex; align-items: center; }
-        .typing .dot { width: 10px; height: 10px; background-color: var(--typing-dot-color); border-radius: 50%; margin-right: 5px; animation: typingAnimation 1.2s infinite; }
-        @keyframes typingAnimation { 0% { transform: scale(0.8); opacity: 0.4; } 50% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.8); opacity: 0.4; } }
-        .typing .dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing .dot:nth-child(3) { animation-delay: 0.4s; }
-        #suggestions-container{padding: 0 20px; display: flex; flex-wrap: wrap; justify-content: flex-start; }
-        .suggestion { background-color: var(--suggestion-bg-color); color: var(--text-color-alt); padding: 8px 12px; border-radius: 15px; margin: 5px; cursor: pointer; transition: background-color 0.2s;}
-        .suggestion:hover{background-color: var(--suggestion-hover-color);}
-        #input-area { display: flex; align-items: center; padding: 15px 20px; background-color: var(--bg-color-alt); border-top: 2px solid var(--primary-color);}
-        #user-input { flex-grow: 1; padding: 12px 15px; border: none; border-radius: 20px; background-color: var(--input-bg-color); color: var(--text-color); font-size: 1rem; outline: none; }
-        #send-button { background-color: var(--primary-color); color: #fff; border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer; margin-left: 10px; transition: background-color 0.3s; font-size: 1rem; display: flex; align-items: center;}
-        #send-button:hover { background-color: var(--button-hover-color); }
-        #send-button i { margin-right: 5px; } /* Ikon di tombol kirim */
-         /* Responsif */
-        @media (max-width: 768px) {
-            #chatbot-container { height: 90vh; }
-            .message { max-width: 90%; }
-            #input-area{flex-direction: column;}
-            #user-input{margin-bottom: 10px; width: 100%;}
-            #send-button{width: 100%; justify-content: center;}
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
 
+        .chat-container {
+            width: 375px;
+            height: 812px;
+            background: linear-gradient(135deg, #e0e0e0, #f0f0f0);
+            border-radius: 25px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+        .chat-container::before{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://cdn.pixabay.com/photo/2017/08/18/10/19/pattern-2654659_960_720.jpg') repeat;
+            opacity: 0.03;
+
+        }
+
+        .header {
+            background-color: #075e54;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #054d44;
+        }
+
+        .header .left-arrow {
+            font-size: 1.5em;
+            margin-right: 15px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .header .chat-info h2 {
+            margin: 0;
+            font-size: 1.2em;
+            font-weight: 700;
+        }
+
+        .status-bar {
+            background-color: #054d44;
+            color: #ddd;
+            padding: 3px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .status-bar .time, .status-bar .battery {
+            font-size: 1em;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            max-width: 75%;
+            word-wrap: break-word;
+             border-radius: 18px;
+            padding: 10px 15px;
+            position: relative;
+        }
+
+        .message.sent {
+            background-color: #DCF8C6;
+            align-self: flex-end;
+        }
+
+          .message.received {
+            background-color: white;
+            align-self: flex-start;
+        }
+        .message.received-info {
+             background-color: #a8dadc;
+             align-self: flex-start;
+
+        }
+
+
+        .message-time {
+            position: absolute;
+            bottom: 3px;
+            right: 8px;
+            font-size: 0.75em;
+            color: #777;
+        }
+        .message.sent .message-time {
+           color: #65925b;
+        }
+         .message.received .message-time {
+           color: rgba(0, 0, 0, 0.45);
+        }
+
+        .message.sent .message-time::after {
+            content: '\2713\2713';
+            margin-left: 3px;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            padding: 0 20px 15px 20px;
+        }
+
+        .chat-button {
+            background: linear-gradient(to bottom, #f5f5f5, #e8e8e8);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            text-align: left;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+            font-size: 1.05em;
+            transition: transform 0.1s ease;
+        }
+        .chat-button:hover{
+           transform: scale(1.03)
+        }
+
+        .footer {
+             background-color: #f0f0f0;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            border-top: 1px solid #ccc;
+        }
+
+        .footer .input-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background-color: white;
+            border-radius: 25px;
+            padding: 8px 15px;
+              border: 1px solid #ddd;
+        }
+
+        .footer .input-area span.icon {
+              color: #075e54;
+        }
+
+        .footer input[type="text"] {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px;
+            font-size: 1.1em;
+            background-color: transparent;
+        }
+
+        .footer .icon {
+             font-size: 1.6em;
+            margin: 0 10px;
+            color: #888;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+          .footer .icon.send-button {
+             color: #075e54;
+        }
+
+        .footer .icon:hover {
+            color: #555;
+        }
+
+         .today-label {
+            text-align: center;
+            margin: 15px 0;
+            font-size: 0.95em;
+            color: #555;
+            background-color: #f0f0f0;
+            padding: 6px 18px;
+            border-radius: 20px;
+            display: inline-block;
+            align-self: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
-    <div id="chatbot-container">
-        <div id="chat-header">
-            <div class="header-icon"><i class="fas fa-robot"></i></div>
-            <div class="header-title">WANZOFC BOT</div>
-            <div class="header-buttons">
-                <button id="theme-toggle" title="Ganti Tema"><i class="fas fa-moon"></i></button>
-                <button id="minimize-button" title="Minimize"><i class="fas fa-window-minimize"></i></button>
+    <div class="chat-container">
+        <div class="status-bar">
+            <div class="time"></div>
+            <div class="battery">
+              <span id="battery-level"></span>
             </div>
         </div>
-        <div id="chat-log">
-            <div class="message bot-message">Selamat datang! Ada yang bisa saya bantu?</div>
+        <div class="header">
+            <div class="left-arrow">❮</div>
+            <div class="chat-info">
+                <h2>Wanzofc AI</h2>
+            </div>
+        </div>
+        <div class="chat-messages">
         </div>
 
-        <div id="suggestions-container"></div>
-
-        <div id="input-area">
-            <input type="text" id="user-input" placeholder="Ketik pesan Anda..." autocomplete="off">
-            <button id="send-button"><i class="fas fa-paper-plane"></i> Kirim</button>
+        <div class="footer">
+            <div class="input-area">
+                <span class="icon">➕</span>
+                <input type="text" placeholder="Pesan" id="message-input">
+                <span class="icon send-button" id="send-button"><i class="fas fa-paper-plane"></i></span>
+            </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
     <script>
-        const chatLog = document.getElementById('chat-log');
-        const userInput = document.getElementById('user-input');
-        const sendButton = document.getElementById('send-button');
-        const themeToggle = document.getElementById('theme-toggle');
-        const suggestionsContainer = document.getElementById('suggestions-container');
-        const backendUrl = '/api/chatbot'; 
-        gsap.from("#chatbot-container", { opacity: 0, duration: 1, y: 50 });
-        gsap.from("#chat-header", { opacity: 0, duration: 0.8, y: -20, delay: 0.5 });
-        gsap.from("#chat-log", { opacity: 0, duration: 0.8, delay: 0.7 });
-        gsap.from("#input-area", { opacity: 0, duration: 0.8, y: 20, delay: 0.9 });
-        function animateNewMessage(element) {
-          gsap.from(element, { opacity: 0, x: (element.classList.contains('user-message') ? 50 : -50), duration: 0.5 });
+    const socket = io();
+
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const chatMessages = document.querySelector('.chat-messages');
+
+    function addMessage(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
+        messageDiv.classList.add(sender === 'user' ? 'sent' : 'received');
+
+        const now = new Date();
+        const options = { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit' };
+        const formattedTime = now.toLocaleTimeString('id-ID', options);
+
+        messageDiv.innerHTML = `${text}<span class="message-time">${formattedTime}</span>`;
+        chatMessages.appendChild(messageDiv);
+        scrollToBottom();
+    }
+
+    function sendMessage() {
+        const message = messageInput.value.trim();
+        if (message) {
+            socket.emit('chat message', message);
+            messageInput.value = '';
         }
+    }
+    sendButton.addEventListener('click', sendMessage);
 
-        themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('light-mode');
-             //Animasi ganti tema (contoh)
-             gsap.to("#chatbot-container", {duration: 0.3, backgroundColor: (document.body.classList.contains("light-mode") ? "var(--bg-color-alt)" : "#222")})
-        });
+    messageInput.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter'){
+        sendMessage()
+      }
+    })
 
-        sendButton.addEventListener('click', sendMessage);
-        userInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        });
+    socket.on('chat message', (data) => {
+        addMessage(data.text, data.sender);
+    });
 
-        const suggestions = ["Halo", "Selamat siang", "Apa kabar?", "Bagaimana cuaca hari ini?", "Terima kasih", "Bantuan"];
+    function updateTimeAndBattery() {
+        const now = new Date();
+        const options = { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit' };
+        const formattedTime = now.toLocaleTimeString('id-ID', options);
+        document.querySelector('.status-bar .time').textContent = formattedTime;
 
-         userInput.addEventListener('input', () => {
-            const inputText = userInput.value.toLowerCase();
-            const matchingSuggestions = suggestions.filter(s => s.toLowerCase().startsWith(inputText));
-            displaySuggestions(matchingSuggestions);
-         });
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(battery => {
+                const batteryLevel = Math.round(battery.level * 100);
+                document.getElementById('battery-level').textContent = `\u2588 ${batteryLevel}%`;
 
-        function displaySuggestions(matches) {
-            suggestionsContainer.innerHTML = '';
-            matches.forEach(match => {
-              const suggestionElement = document.createElement('div');
-              suggestionElement.classList.add('suggestion');
-              suggestionElement.textContent = match;
-              suggestionElement.addEventListener('click', () => {
-                userInput.value = match;
-                suggestionsContainer.innerHTML = ''; //Hapus suggestion
-                userInput.focus();
-              });
-              suggestionsContainer.appendChild(suggestionElement);
+                battery.onlevelchange = () => {
+                    const batteryLevel = Math.round(battery.level * 100);
+                    document.getElementById('battery-level').textContent = `\u2588 ${batteryLevel}%`;
+                };
             });
+        } else {
+            document.getElementById('battery-level').textContent = '\u2588 N/A';
         }
+    }
 
+    updateTimeAndBattery();
+    setInterval(updateTimeAndBattery, 60000);
 
-        async function sendMessage() {
-            const messageText = userInput.value.trim();
-            if (messageText) {
-                addUserMessage(messageText);
-                const typingIndicator = addBotTypingIndicator(); // Tampilkan typing indicator
-                try{
-                    await getBotResponse(messageText);
-                } finally {
-                  removeBotTypingIndicator(typingIndicator);  // Selalu hapus typing indicator
-                }
-                userInput.value = '';
-                suggestionsContainer.innerHTML = ''; // Hapus suggestions
-            }
-        }
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 
-        function addUserMessage(message) {
-            appendMessage(message, 'user-message');
-        }
-
-        function addBotMessage(message) {
-            appendMessage(message, 'bot-message');
-        }
-
-        function appendMessage(message, className) {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('message', className);
-            messageElement.textContent = message;
-            chatLog.appendChild(messageElement);
-            animateNewMessage(messageElement); // Tambahkan animasi
-            scrollToBottom();
-        }
-
-        function addBotTypingIndicator() {
-            const typingElement = document.createElement('div');
-            typingElement.classList.add('message', 'bot-message', 'typing');
-            typingElement.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-            chatLog.appendChild(typingElement);
-            scrollToBottom();
-            return typingElement;
-        }
-
-        function removeBotTypingIndicator(typingElement) {
-            if (typingElement) {
-                typingElement.remove();
-            }
-        }
-
-        async function getBotResponse(userMessage) {
-            try {
-                const response = await fetch(backendUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: userMessage })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                addBotMessage(data.response);
-
-            } catch (error) {
-                console.error("Error fetching response:", error);
-                addBotMessage("Maaf, terjadi kesalahan saat berkomunikasi dengan server.");
-            }
-        }
-
-        function scrollToBottom() {
-            chatLog.scrollTop = chatLog.scrollHeight;
-        }
     </script>
 </body>
 </html>
