@@ -1,21 +1,14 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const axios = require('axios');
-
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-
 const PORT = process.env.PORT || 3000;
-
 app.use(express.static(__dirname));
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html')); // Kirim file index.html
-});
-app.get('/wanzbrayy', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html')); // Kirim file index.html
+    res.sendFile(path.join(__dirname, 'index.html')); 
 });
 io.on('connection', (socket) => {
     console.log('A user connected');
