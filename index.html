@@ -5,36 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11">
 
     <style>
         :root {
-            --bg-color: #f0f2f5;
-            --header-color: #075e54;
+            --primary-color: #075e54;
+            --secondary-color: #25d366;
+            --accent-color: #f0f0f0;
+            --dark-bg-color: #121212;
+            --dark-secondary-color: #005c4b;
+            --dark-accent-color: #222;
+            --bg-color: var(--accent-color);
+            --header-color: var(--primary-color);
             --header-text-color: white;
             --status-bar-color: #054d44;
             --message-sent-bg: #DCF8C6;
             --message-received-bg: white;
             --message-info-bg: #a8dadc;
-            --footer-bg: #f0f0f0;
+            --footer-bg: var(--accent-color);
             --input-border-color: #ddd;
             --text-color: #333;
             --time-color-sent:  #65925b;
             --time-color-received: rgba(0, 0, 0, 0.45);
+            --typing-indicator-color: #999;
         }
 
         .dark-mode {
-            --bg-color: #000;
+            --bg-color: var(--dark-bg-color);
             --header-color: #111;
             --header-text-color: #fff;
-            --status-bar-color: #000;
-            --message-sent-bg: #005c4b;
-            --message-received-bg: #222;
+            --status-bar-color: var(--dark-bg-color);
+            --message-sent-bg: var(--dark-secondary-color);
+            --message-received-bg: var(--dark-accent-color);
             --message-info-bg: #333;
             --footer-bg: #111;
             --input-border-color: #444;
             --text-color: #fff;
             --time-color-sent: #00a884;
             --time-color-received: rgba(255, 255, 255, 0.6);
+            --typing-indicator-color: #ccc;
         }
 
       body {
@@ -50,20 +59,57 @@
           transition: background-color 0.3s ease;
       }
 
+        #loading-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        #loading-progress {
+            width: 80%;
+            height: 20px;
+            background-color: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        #loading-bar {
+            height: 100%;
+            width: 0;
+            background-color: var(--secondary-color);
+            border-radius: 10px;
+            transition: width 0.1s ease;
+        }
+
+        #loading-percent{
+          color: white;
+          text-align: center;
+        }
+
       .chat-container {
           width: 100vw;
           height: 100vh;
           max-width: 100%;
           max-height: 100%;
-          background-color: #e5ddd5;
+          background-color: var(--accent-color);
           overflow: hidden;
-          display: flex;
+          display: none;
           flex-direction: column;
           box-shadow: none;
           position: relative;
           opacity: 0;
           transform: translateY(50px);
           animation: fadeInUp 0.8s ease forwards;
+          transition: background-color 0.3s ease;
       }
 
       @keyframes fadeInUp {
@@ -103,7 +149,12 @@
           margin-right: 15px;
           cursor: pointer;
           color: var(--header-text-color);
+          transition: transform 0.2s ease;
       }
+
+       .header .left-arrow:hover {
+          transform: scale(1.2);
+        }
 
        .header .chat-info-wrapper {
           display: flex;
@@ -123,6 +174,7 @@
           align-items: center;
 
         }
+
       .header .chat-info h2 {
           margin: 0;
           font-size: 1.2em;
@@ -189,16 +241,25 @@
           scrollbar-width: none;
       }
 
-      .message {
-            margin-bottom: 12px;
-            max-width: 70%;
-            word-wrap: break-word;
-            border-radius: 18px;
-            padding: 10px 15px;
-            position: relative;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.3s ease;
-        }
+     .message {
+        margin-bottom: 12px;
+        max-width: 70%;
+        word-wrap: break-word;
+        border-radius: 18px;
+        padding: 10px 15px;
+        position: relative;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s ease, transform 0.1s ease;
+    }
+
+      .message:hover {
+          transform: scale(1.02);
+      }
+
+    .message-content {
+      flex-grow: 1;
+      margin-right: 10px;
+    }
 
       .message.sent {
           background-color: var(--message-sent-bg);
@@ -212,28 +273,28 @@
           border-bottom-left-radius: 4px;
       }
 
-        .message.received-info {
-           background-color: var(--message-info-bg);
-            color: #333;
-            align-self: flex-start;
-            font-size: 0.9em;
-            border-radius: 10px;
-            padding: 8px 12px;
-            margin-bottom: 5px;
-            transition: background-color 0.3s ease;
-
+      .message.received-info {
+        background-color: var(--message-info-bg);
+        color: #333;
+        align-self: flex-start;
+        font-size: 0.9em;
+        border-radius: 10px;
+        padding: 8px 12px;
+        margin-bottom: 5px;
+        transition: background-color 0.3s ease;
       }
+
       .message-info .message-time::after {
           content: none;
       }
 
       .message-time {
-          position: absolute;
-          bottom: 3px;
-          right: 8px;
-          font-size: 0.7em;
-          color: var(--time-color-received);
-      }
+        position: absolute;
+        bottom: 3px;
+        right: 8px;
+        font-size: 0.7em;
+        color: var(--time-color-received);
+    }
 
        .message.sent .message-time {
           color: var(--time-color-sent);
@@ -243,6 +304,82 @@
       .message.sent .message-time::after {
           content: '\2713\2713';
           margin-left: 3px;
+      }
+
+      .message-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 5px;
+    }
+
+      .message-actions button {
+          background: none;
+          border: none;
+          color: var(--text-color);
+          cursor: pointer;
+          font-size: 1.2em;
+          padding: 4px;
+          transition: color 0.2s ease, transform 0.1s ease;
+          border-radius: 50%;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+       .message-actions .like-button.liked {
+          color: red;
+      }
+
+      .message-actions .unlike-button.unliked {
+          color: black;
+      }
+
+      .message-actions button:hover {
+          background-color: rgba(0, 0, 0, 0.1);
+      }
+
+       .dark-mode .message-actions button:hover{
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+
+      .typing-indicator {
+        display: flex;
+        align-items: center;
+        margin-left: 5px;
+      }
+
+      .typing-indicator span {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--typing-indicator-color);
+        margin: 0 2px;
+        animation: typing-blink 1.4s infinite;
+      }
+
+      .typing-indicator span:nth-child(1) {
+        animation-delay: 0s;
+      }
+
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typing-blink {
+        0%, 100% {
+          opacity: 0.2;
+        }
+        20% {
+          opacity: 1;
+        }
       }
 
       .button-container {
@@ -263,7 +400,6 @@
             font-size: 1.05em;
             transition: transform 0.1s ease;
             color: var(--text-color);
-
         }
 
       .chat-button:hover {
@@ -291,6 +427,7 @@
            border: 1px solid var(--input-border-color);
           transition: box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
       }
+
       .dark-mode .footer .input-area {
         background-color: #333;
       }
@@ -303,6 +440,7 @@
           color: #075e54;
           margin-right: 8px;
       }
+
       .dark-mode .footer .input-area span.icon{
          color: #00a884;
       }
@@ -353,6 +491,7 @@
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
            transition: background-color 0.3s ease, color 0.3s ease;
       }
+
        .dark-mode .today-label {
         background-color: #333;
         color: #f0f0f0;
@@ -362,6 +501,14 @@
 </head>
 
 <body>
+
+  <div id="loading-modal">
+    <div id="loading-progress">
+        <div id="loading-bar"></div>
+    </div>
+    <div id="loading-percent">0%</div>
+  </div>
+
 
     <div class="chat-container">
 
@@ -387,15 +534,25 @@
         <div class="chat-messages">
             <div class="today-label">Hari ini</div>
             <div class="message received-info">
-              Selamat datang di Wanzofc AI! Ada yang bisa saya bantu?
+              <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
                 <span class="message-time"></span>
             </div>
             <div class="message received">
-              Halo! 👋
+               <span class="message-content">Halo! 👋</span>
+               <div class="message-actions">
+                  <button class="copy-button"><i class="fas fa-copy"></i></button>
+                </div>
               <span class="message-time"></span>
             </div>
              <div class="message received">
-              Apa kabar? 😊
+              <span class="message-content">Apa kabar? 😊</span>
+               <div class="message-actions">
+                  <button class="copy-button"><i class="fas fa-copy"></i></button>
+                </div>
               <span class="message-time"></span>
             </div>
         </div>
@@ -410,10 +567,42 @@
 
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
+      const loadingModal = document.getElementById('loading-modal');
+      const loadingBar = document.getElementById('loading-bar');
+      const loadingPercent = document.getElementById('loading-percent')
+      const chatContainer = document.querySelector('.chat-container');
+
+      let progress = 0;
+
+      const loadingInterval = setInterval(() => {
+          progress += 1;
+          loadingBar.style.width = `${progress}%`;
+          loadingPercent.textContent = `${progress}%`;
+
+          if (progress >= 100) {
+              clearInterval(loadingInterval);
+              loadingModal.style.display = 'none';
+              chatContainer.style.display = 'flex';
+
+                Swal.fire({
+                    title: 'Selamat datang di Wanzofc AI',
+                    icon: 'success',
+                    confirmButtonText: 'Oke',
+                    confirmButtonColor: '#075e54',
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                      console.log('Percakapan dimulai!');
+                    }
+                });
+          }
+      }, 20);
+
+
       const socket = io();
       const messageInput = document.getElementById('message-input');
       const sendButton = document.getElementById('send-button');
@@ -437,19 +626,99 @@
 
       modeToggle.addEventListener('click', toggleDarkMode);
 
-      function addMessage(text, sender) {
-          const messageDiv = document.createElement('div');
-          messageDiv.classList.add('message');
-          messageDiv.classList.add(sender === 'user' ? 'sent' : 'received');
+      function addMessage(text, sender, isTyping = false) {
+          if (isTyping) {
+            const typingIndicatorDiv = document.createElement('div');
+            typingIndicatorDiv.classList.add('message', 'received');
+            typingIndicatorDiv.innerHTML = `
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <span class="message-time"></span>`;
+            chatMessages.appendChild(typingIndicatorDiv);
+             scrollToBottom();
+            return typingIndicatorDiv;
 
-          const now = new Date();
-          const options = { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit' };
-          const formattedTime = now.toLocaleTimeString('id-ID', options);
+        }
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
+        messageDiv.classList.add(sender === 'user' ? 'sent' : 'received');
 
-          messageDiv.innerHTML = `${text}<span class="message-time">${formattedTime}</span>`;
-          chatMessages.appendChild(messageDiv);
-          scrollToBottom();
+        const now = new Date();
+        const options = { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit' };
+        const formattedTime = now.toLocaleTimeString('id-ID', options);
+
+        let messageContentHTML = `<span class="message-content">${text}</span>`;
+
+        if (sender === 'ai') {
+            messageContentHTML += `
+                <div class="message-actions">
+                    <button class="like-button"><i class="fas fa-thumbs-up"></i></button>
+                    <button class="unlike-button"><i class="fas fa-thumbs-down"></i></button>
+                    <button class="copy-button"><i class="fas fa-copy"></i></button>
+                </div>
+            `;
+        }
+        messageDiv.innerHTML = messageContentHTML;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.classList.add('message-time');
+        timeSpan.textContent = formattedTime;
+        messageDiv.appendChild(timeSpan);
+
+        chatMessages.appendChild(messageDiv);
+
+        if (sender === 'ai') {
+              const likeButton = messageDiv.querySelector('.like-button');
+              const unlikeButton = messageDiv.querySelector('.unlike-button');
+              const copyButton = messageDiv.querySelector('.copy-button');
+            let isLiked = false;
+            let isUnliked = false;
+
+            likeButton.addEventListener('click', () => {
+                isLiked = !isLiked;
+                isUnliked = false;
+                likeButton.classList.toggle('liked', isLiked);
+                unlikeButton.classList.remove('unliked');
+            });
+
+            unlikeButton.addEventListener('click', () => {
+                isUnliked = !isUnliked;
+                isLiked = false;
+                unlikeButton.classList.toggle('unliked', isUnliked);
+                likeButton.classList.remove('liked');
+            });
+
+            copyButton.addEventListener('click', () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    copyButton.style.color = 'green';
+                    setTimeout(() => {
+                      copyButton.style.color = 'var(--text-color)'
+                    }, 1500);
+
+                }).catch(err => {
+                    console.error('Failed to copy!', err);
+                });
+            });
+        }
+
+        scrollToBottom();
+        hljs.highlightAll();
+    }
+
+      function showTypingIndicator() {
+          return addMessage('', 'ai', true);
       }
+
+        function hideTypingIndicatorAndAddMessage(indicatorElement, text) {
+            if (indicatorElement) {
+              indicatorElement.remove();
+            }
+
+            addMessage(text, 'ai');
+        }
 
       function sendMessage() {
           const message = messageInput.value.trim();
@@ -471,9 +740,18 @@
         }
       });
 
-      socket.on('chat message', (data) => {
-          addMessage(data.text, data.sender);
-          hljs.highlightAll(); // Highlight setelah menambahkan pesan baru
+       socket.on('chat message', (data) => {
+          if (data.sender === 'ai') {
+            const typingIndicator = showTypingIndicator();
+            setTimeout(() => {
+                hideTypingIndicatorAndAddMessage(typingIndicator, data.text);
+            }, 2000);
+
+          } else{
+             addMessage(data.text, data.sender);
+          }
+
+          hljs.highlightAll();
       });
 
       function updateTimeAndBattery() {
@@ -513,7 +791,7 @@
           chatMessages.scrollTop = chatMessages.scrollHeight;
       }
 
-    hljs.highlightAll(); // Highlight saat pertama kali load
+    hljs.highlightAll();
 
     </script>
 </body>
