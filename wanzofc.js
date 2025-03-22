@@ -17,7 +17,6 @@ app.get('/', (req, res) => {
 app.get('/wanzbrayy', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin.html')); // Kirim file index.html
 });
-
 io.on('connection', (socket) => {
     console.log('A user connected');
 
@@ -29,8 +28,7 @@ io.on('connection', (socket) => {
         try {
             const response = await axios.get(apiUrl);
             let aiResponse = '';
-            
-            // Access the correct data based on the *new* JSON structure
+
             if (response.data && response.data.data && response.data.data.data) {
                 aiResponse = response.data.data.data;
             } else {
