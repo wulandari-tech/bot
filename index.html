@@ -4,16 +4,50 @@
     <title>Wanzofc AI Chat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+
     <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --header-color: #075e54;
+            --header-text-color: white;
+            --status-bar-color: #054d44;
+            --message-sent-bg: #DCF8C6;
+            --message-received-bg: white;
+            --message-info-bg: #a8dadc;
+            --footer-bg: #f0f0f0;
+            --input-border-color: #ddd;
+            --text-color: #333;
+            --time-color-sent:  #65925b;
+            --time-color-received: rgba(0, 0, 0, 0.45);
+        }
+
+        .dark-mode {
+            --bg-color: #000;
+            --header-color: #111;
+            --header-text-color: #fff;
+            --status-bar-color: #000;
+            --message-sent-bg: #005c4b;
+            --message-received-bg: #222;
+            --message-info-bg: #333;
+            --footer-bg: #111;
+            --input-border-color: #444;
+            --text-color: #fff;
+            --time-color-sent: #00a884;
+            --time-color-received: rgba(255, 255, 255, 0.6);
+        }
+
       body {
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
           margin: 0;
           padding: 0;
-          background-color: #f0f2f5;
+          background-color: var(--bg-color);
+          color: var(--text-color);
           display: flex;
           justify-content: center;
           align-items: center;
           min-height: 100vh;
+          transition: background-color 0.3s ease;
       }
 
       .chat-container {
@@ -27,6 +61,16 @@
           flex-direction: column;
           box-shadow: none;
           position: relative;
+          opacity: 0;
+          transform: translateY(50px);
+          animation: fadeInUp 0.8s ease forwards;
+      }
+
+      @keyframes fadeInUp {
+          to {
+              opacity: 1;
+              transform: translateY(0);
+          }
       }
 
       .chat-container::before {
@@ -41,33 +85,64 @@
           z-index: 0;
       }
 
-      /* Updated header colors */
       .header {
-          background-color: #075e54; /* Darker WhatsApp green */
-          color: white;
-          padding: 15px 20px;
-          display: flex;
-          align-items: center;
-          border-bottom: 1px solid #054d44;
-          z-index: 2;
-          position: relative;
-      }
+            background-color: var(--header-color);
+            color: var(--header-text-color);
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #054d44;
+            z-index: 2;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
 
       .header .left-arrow {
           font-size: 1.5em;
           margin-right: 15px;
           cursor: pointer;
-          color: white;
+          color: var(--header-text-color);
       }
 
+       .header .chat-info-wrapper {
+          display: flex;
+          align-items: center;
+      }
+
+      .header .profile-pic {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          margin-right: 10px;
+          object-fit: cover;
+      }
+
+        .header .chat-info{
+           display: flex;
+          align-items: center;
+
+        }
       .header .chat-info h2 {
           margin: 0;
           font-size: 1.2em;
           font-weight: 700;
+           color: var(--header-text-color);
       }
-        /* Updated status bar colors */
+
+      .header .mode-toggle {
+          font-size: 1.5em;
+          cursor: pointer;
+          color: var(--header-text-color);
+          transition: transform 0.2s ease;
+      }
+
+        .header .mode-toggle:hover {
+          transform: rotate(90deg);
+        }
+
       .status-bar {
-          background-color: #054d44; /* Darker shade for status bar */
+          background-color: var(--status-bar-color);
           color: white;
           padding: 3px 10px;
           display: flex;
@@ -76,6 +151,7 @@
           font-size: 0.8em;
           z-index: 2;
           position: relative;
+          transition: background-color 0.3s ease;
       }
 
       .status-bar .time {
@@ -104,36 +180,48 @@
           position: relative;
       }
 
-      .message {
-          margin-bottom: 12px;
-          max-width: 70%;
-          word-wrap: break-word;
-          border-radius: 18px;
-          padding: 10px 15px;
-          position: relative;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        .chat-messages::-webkit-scrollbar {
+          width: 0;
+          background: transparent;
+        }
+
+       .chat-messages {
+          scrollbar-width: none;
       }
 
+      .message {
+            margin-bottom: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+            border-radius: 18px;
+            padding: 10px 15px;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
       .message.sent {
-          background-color: #DCF8C6;
+          background-color: var(--message-sent-bg);
           align-self: flex-end;
           border-bottom-right-radius: 4px;
       }
 
       .message.received {
-          background-color: white;
+          background-color: var(--message-received-bg);
           align-self: flex-start;
           border-bottom-left-radius: 4px;
       }
 
         .message.received-info {
-          background-color: #a8dadc;
-          color: #333;
-          align-self: flex-start;
-          font-size: 0.9em;
-          border-radius: 10px;
-          padding: 8px 12px;
-          margin-bottom: 5px;
+           background-color: var(--message-info-bg);
+            color: #333;
+            align-self: flex-start;
+            font-size: 0.9em;
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            transition: background-color 0.3s ease;
+
       }
       .message-info .message-time::after {
           content: none;
@@ -144,15 +232,14 @@
           bottom: 3px;
           right: 8px;
           font-size: 0.7em;
-          color:#777;
+          color: var(--time-color-received);
       }
 
        .message.sent .message-time {
-          color: #65925b;
+          color: var(--time-color-sent);
+
       }
-      .message.received .message-time{
-          color: rgba(0, 0, 0, 0.45);
-      }
+
       .message.sent .message-time::after {
           content: '\2713\2713';
           margin-left: 3px;
@@ -165,30 +252,33 @@
       }
 
       .chat-button {
-          background: linear-gradient(to bottom, #f5f5f5, #e8e8e8);
-          border: 1px solid #ccc;
-          border-radius: 8px;
-          padding: 14px 18px;
-          margin-bottom: 8px;
-          text-align: left;
-          cursor: pointer;
-          box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-          font-size: 1.05em;
-          transition: transform 0.1s ease;
-      }
+            background: linear-gradient(to bottom, #f5f5f5, #e8e8e8);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            text-align: left;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+            font-size: 1.05em;
+            transition: transform 0.1s ease;
+            color: var(--text-color);
+
+        }
 
       .chat-button:hover {
           transform: scale(1.03);
       }
 
       .footer {
-          background-color: #f0f0f0;
+          background-color: var(--footer-bg);
           padding: 12px 15px;
           display: flex;
           align-items: center;
-          border-top: 1px solid #ccc;
+          border-top: 1px solid var(--input-border-color);
           z-index: 2;
           position: relative;
+          transition: background-color 0.3s ease, border-color 0.3s ease;
       }
 
       .footer .input-area {
@@ -198,8 +288,11 @@
           background-color: white;
           border-radius: 25px;
           padding: 8px 15px;
-          border: 1px solid #ddd;
-          transition: box-shadow 0.2s ease;
+           border: 1px solid var(--input-border-color);
+          transition: box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+      }
+      .dark-mode .footer .input-area {
+        background-color: #333;
       }
 
       .footer .input-area:focus-within {
@@ -210,15 +303,19 @@
           color: #075e54;
           margin-right: 8px;
       }
+      .dark-mode .footer .input-area span.icon{
+         color: #00a884;
+      }
 
       .footer input[type="text"] {
-          flex: 1;
-          border: none;
-          outline: none;
-          padding: 10px 0;
-          font-size: 1.1em;
-          background-color: transparent;
-      }
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px 0;
+            font-size: 1.1em;
+            background-color: transparent;
+            color: var(--text-color);
+        }
 
       .footer .icon {
           font-size: 1.6em;
@@ -232,6 +329,11 @@
           color: #075e54;
           margin-left: 0px;
           margin-right: 0;
+          transition: color 0.2s ease;
+      }
+
+      .dark-mode .footer .icon.send-button{
+        color: #00a884;
       }
 
       .footer .icon:hover {
@@ -249,11 +351,20 @@
           display: inline-block;
           align-self: center;
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+           transition: background-color 0.3s ease, color 0.3s ease;
       }
+       .dark-mode .today-label {
+        background-color: #333;
+        color: #f0f0f0;
+       }
+
     </style>
 </head>
+
 <body>
+
     <div class="chat-container">
+
         <div class="status-bar">
             <div class="time"></div>
             <div class="battery">
@@ -261,12 +372,18 @@
                 <span id="battery-level"></span>
             </div>
         </div>
+
         <div class="header">
             <div class="left-arrow">❮</div>
-            <div class="chat-info">
-                <h2>Wanzofc AI</h2>
+            <div class="chat-info-wrapper">
+                <div class="chat-info">
+                    <img src="https://files.catbox.moe/3x2yum.jpg" alt="Profile Picture" class="profile-pic">
+                    <h2>Wanzofc AI</h2>
+                </div>
             </div>
+            <div class="mode-toggle" id="mode-toggle">🌙</div>
         </div>
+
         <div class="chat-messages">
             <div class="today-label">Hari ini</div>
             <div class="message received-info">
@@ -290,15 +407,35 @@
                 <button class="icon send-button" id="send-button"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
+
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+
     <script>
       const socket = io();
-
       const messageInput = document.getElementById('message-input');
       const sendButton = document.getElementById('send-button');
       const chatMessages = document.querySelector('.chat-messages');
+      const modeToggle = document.getElementById('mode-toggle');
+      const body = document.body;
+
+      let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+      function toggleDarkMode() {
+          isDarkMode = !isDarkMode;
+          body.classList.toggle('dark-mode', isDarkMode);
+          modeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+          localStorage.setItem('darkMode', isDarkMode);
+      }
+
+       if (isDarkMode) {
+          body.classList.add('dark-mode');
+          modeToggle.textContent = '☀️';
+      }
+
+      modeToggle.addEventListener('click', toggleDarkMode);
 
       function addMessage(text, sender) {
           const messageDiv = document.createElement('div');
@@ -313,7 +450,6 @@
           chatMessages.appendChild(messageDiv);
           scrollToBottom();
       }
-
 
       function sendMessage() {
           const message = messageInput.value.trim();
@@ -335,9 +471,9 @@
         }
       });
 
-
       socket.on('chat message', (data) => {
           addMessage(data.text, data.sender);
+          hljs.highlightAll(); // Highlight setelah menambahkan pesan baru
       });
 
       function updateTimeAndBattery() {
@@ -376,6 +512,8 @@
       function scrollToBottom() {
           chatMessages.scrollTop = chatMessages.scrollHeight;
       }
+
+    hljs.highlightAll(); // Highlight saat pertama kali load
 
     </script>
 </body>
