@@ -1,45 +1,55 @@
+// server.js
 const express = require('express');
-const cors = require('cors');
-const fetch = require('node-fetch');
-const path = require('path');
+const http = require('http');
+const socketIo = require('socket.io');
+const axios = require('axios');
+
 const app = express();
-const port = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = socketIo(server);
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname))); // Serve static files from the current directory
+const PORT = process.env.PORT || 3000;
 
-app.post('/api/chatbot', async (req, res) => {
-    const userMessage = req.body.message;
-    const apiKey = 'C68xIhWt'; // Ganti dengan API key Anda jika berbeda
-    const apiUrl = `https://api.only-awan.biz.id/api/ai/gpt3?prompt=${encodeURIComponent('kamu adalah wanzofc yang sangat toxic dan kasar dan sopan santun dan gunakan emoji juga dan menggunakan huruf kecil juga')}&content=${encodeURIComponent(userMessage)}&apikey=${apiKey}`;
-
-    try {
-        const response = await fetch(apiUrl);
-        const data = await response.json();
-
-        if (data.result && data.data.status) {
-            const botResponse = data.data.data;
-            res.json({ response: botResponse });
-        } else {
-            res.status(500).json({ error: 'Terjadi kesalahan saat memproses permintaan.' });
-        }
-    } catch (error) {
-        console.error('Error fetching bot response:', error);
-        res.status(500).json({ error: 'Gagal terhubung ke server AI.' });
-    }
-});
-
-// Serve the index.html file for the root route ("/")
+app.use(express.static(__dirname));
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html')); // Kirim file index.html
+});
+app.get('/wanzbrayy', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html')); // Kirim file index.html
 });
 
-// For any other routes, return a 404 error (or handle them specifically if needed)
-app.use((req, res, next) => {
-  res.status(404).send("Sorry, that route doesn't exist!");
+io.on('connection', (socket) => {
+    console.log('A user connected');
+
+    socket.on('chat message', async (msg) => {
+        io.emit('chat message', { text: msg, sender: 'user' });
+
+        const apiUrl = `https://api.only-awan.biz.id/api/ai/gpt3?prompt=${encodeURIComponent("kamu adalah wanzofc yang sopan dan gunakan huruf kecil semua dan balas juga dpaat menggunakan emoji")}&content=${encodeURIComponent(msg)}&apikey=C68xIhWt`;
+
+        try {
+            const response = await axios.get(apiUrl);
+            let aiResponse = '';
+            
+            // Access the correct data based on the *new* JSON structure
+            if (response.data && response.data.data && response.data.data.data) {
+                aiResponse = response.data.data.data;
+            } else {
+                aiResponse = "Maaf, ada masalah dengan AI.";
+                console.error("Unexpected API response:", response.data);
+            }
+
+            io.emit('chat message', { text: aiResponse, sender: 'ai' });
+        } catch (error) {
+            console.error("Error fetching from API:", error);
+            io.emit('chat message', { text: "Maaf, sedang ada gangguan. Coba lagi nanti.", sender: 'ai' });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+    });
 });
 
-app.listen(port, () => {
-    console.log(`Server berjalan di http://localhost:${port}`);
+server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
 });
