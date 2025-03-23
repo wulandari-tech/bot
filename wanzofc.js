@@ -8,247 +8,137 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// --- Database Sederhana (db.json) ---
-
 const DB_FILE = path.join(__dirname, 'db.json');
 
-// Fungsi untuk membaca data dari db.json
 function readDb() {
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const data = fs.readFileSync(DB_FILE, 'utf8');
-      return JSON.parse(data);
-    } else {
-      // Jika file belum ada, inisialisasi dengan struktur dasar
-      return { users: [], groups: [], messages: [] };
+    try {
+        return fs.existsSync(DB_FILE) ? JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) : { users: [], groups: [], messages: [] };
+    } catch (error) {
+        console.error('Error reading db.json:', error);
+        return { users: [], groups: [], messages: [] };
     }
-  } catch (error) {
-    console.error('Error reading db.json:', error);
-    return { users: [], groups: [], messages: [] }; // Default jika error
-  }
 }
 
-// Fungsi untuk menulis data ke db.json
 function writeDb(data) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error writing to db.json:', error);
-  }
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (error) {
+        console.error('Error writing to db.json:', error);
+    }
 }
 
-// Inisialisasi data
 let db = readDb();
 
-
-// --- Middleware ---
 app.use(express.json());
 
-// --- Endpoint API (Contoh) ---
-
-// 1. History Chat
 app.get('/api/history/:groupId', (req, res) => {
-  const { groupId } = req.params;
-  const messages = db.messages.filter(m => m.groupId === groupId)
-    .sort((a, b) => a.timestamp - b.timestamp); // Urutkan berdasarkan timestamp
-
-  // Sertakan username pengirim (join sederhana)
-    const messagesWithSender = messages.map(msg => {
-      const sender = db.users.find(u => u.userId === msg.senderId);
-      return {
-          ...msg,
-          senderUsername: sender ? sender.username : 'Unknown User'
-      }
-    });
-
-  res.json(messagesWithSender);
+    const { groupId } = req.params;
+    const messages = db.messages.filter(m => m.groupId === groupId)
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map(msg => {
+            const sender = db.users.find(u => u.userId === msg.senderId);
+            return { ...msg, senderUsername: sender ? sender.username : 'Unknown User' };
+        });
+    res.json(messagesWithSender);
 });
 
-// 2.  Buat Grup
 app.post('/api/groups', (req, res) => {
-    const { groupName, userId } = req.body; // userId dari pembuat grup
+    const { groupName, userId } = req.body;
+    if (!groupName || !userId) return res.status(400).json({ message: 'Nama grup dan userId diperlukan.' });
+    if (!db.users.find(u => u.userId === userId)) return res.status(404).json({ message: 'User tidak ditemukan.' });
 
-    if (!groupName || !userId) {
-        return res.status(400).json({ message: 'Nama grup dan userId diperlukan.' });
-    }
-    const user = db.users.find(u => u.userId === userId);
-     if (!user) {
-        return res.status(404).json({ message: 'User tidak ditemukan.' });
-    }
-
-
-    const newGroupId = `group-${db.groups.length + 1}`; // ID sederhana
-    const newGroup = {
-        groupId: newGroupId,
-        groupName,
-        members: [userId], // Pembuat grup langsung jadi anggota
-        timestamp: Date.now(),
-    };
-
+    const newGroupId = `group-${db.groups.length + 1}`;
+    const newGroup = { groupId: newGroupId, groupName, members: [userId], timestamp: Date.now() };
     db.groups.push(newGroup);
     writeDb(db);
-
-    res.status(201).json(newGroup); // Kirim data grup baru
+    res.status(201).json(newGroup);
 });
 
-// 3. Dapatkan semua groups
 app.get('/api/groups', (req, res) => {
-    const groupData = db.groups.map(group => {
-       const memberUsernames = group.members.map(memberId => {
-          const user = db.users.find(u => u.userId === memberId);
-          return user ? user.username : 'Unknown';
-       });
-       return {
-          ...group,
-          memberUsernames,
-       }
-    });
-
+    const groupData = db.groups.map(group => ({
+        ...group,
+        memberUsernames: group.members.map(memberId => {
+            const user = db.users.find(u => u.userId === memberId);
+            return user ? user.username : 'Unknown';
+        })
+    }));
     res.json(groupData);
 });
 
-// 4. Endpoint dummy untuk login/register (SANGAT SEDERHANA)
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ message: 'Username dan password diperlukan.' });
-    }
+    if (!username || !password) return res.status(400).json({ message: 'Username dan password diperlukan.' });
 
     let user = db.users.find(u => u.username === username);
-
     if (!user) {
-        // Jika user belum ada, anggap sebagai registrasi
-        const newUserId = `user-${db.users.length + 1}`; // ID sederhana
+        const newUserId = `user-${db.users.length + 1}`;
         user = { userId: newUserId, username, password };
         db.users.push(user);
-        writeDb(db);  // Simpan ke db.json
+        writeDb(db);
     } else if (user.password !== password) {
-       return res.status(401).json({ message: 'Password salah.' });
+        return res.status(401).json({ message: 'Password salah.' });
     }
-     //  Jika user sdh ada dan password benar
-      res.json({ userId: user.userId, username: user.username });
+    res.json({ userId: user.userId, username: user.username });
 });
 
-// --- Socket.IO Logic ---
 io.on('connection', (socket) => {
     console.log('User terhubung:', socket.id);
-    let currentUserId = null; // Menyimpan userId setelah login
+    let currentUserId = null;
 
-     // Event: User Login (dari frontend)
-    socket.on('login', async (userData) => {
-      currentUserId = userData.userId;
-      console.log(`User ${currentUserId} login`);
-
-      // Join semua grup yang user ini jadi anggota
-      db.groups.forEach(group => {
-        if (group.members.includes(currentUserId)) {
-          socket.join(group.groupId);
-          console.log(`User ${currentUserId} joined group ${group.groupId}`);
-        }
-      });
+    socket.on('login', (userData) => {
+        currentUserId = userData.userId;
+        console.log(`User ${currentUserId} login`);
+        db.groups.forEach(group => {
+            if (group.members.includes(currentUserId)) socket.join(group.groupId);
+        });
     });
 
+    socket.on('chatMessage', (data) => {
+        const { groupId, messageText } = data;
+        if (!currentUserId) return;
 
-    // 1. Kirim Pesan
-  socket.on('chatMessage', (data) => {
-    const { groupId, messageText } = data;
+        const newMessage = { messageId: `msg-${db.messages.length + 1}`, groupId, senderId: currentUserId, messageText, timestamp: Date.now() };
+        db.messages.push(newMessage);
+        writeDb(db);
 
-    if (!currentUserId) {
-      console.error('User belum login, tidak bisa kirim pesan');
-      return; // Hentikan jika belum login
-    }
-
-    // Simpan pesan
-    const newMessage = {
-      messageId: `msg-${db.messages.length + 1}`, // ID sederhana
-      groupId,
-      senderId: currentUserId,
-      messageText,
-      timestamp: Date.now(),
-    };
-
-    db.messages.push(newMessage);
-    writeDb(db); // Simpan ke db.json
-
-     // Dapatkan username pengirim.
-      const sender = db.users.find(u => u.userId === currentUserId);
-
-    // Emit ke semua anggota grup (termasuk pengirim)
-    io.to(groupId).emit('message', {
-      ...newMessage,
-      senderUsername: sender ? sender.username : 'Unknown User' // Kirim username
-    });
-  });
-
-
-    // 2. Join Group (setelah login, dan saat masuk halaman grup)
-   socket.on('joinGroup', (groupId) => {
-    if (!currentUserId) {
-        return;
-    }
-
-    // Cek apakah user adalah anggota grup
-    const group = db.groups.find(g => g.groupId === groupId);
-
-    if (group && group.members.includes(currentUserId)) {
-        socket.join(groupId);
-        console.log(`User ${socket.id} bergabung ke grup ${groupId}`);
-    } else {
-        console.log(`User ${socket.id} tidak diizinkan bergabung ke grup ${groupId}`);
-    }
-});
-
-
-    // 3. Leave Group
-    socket.on('leaveGroup', (groupId) => {
-        socket.leave(groupId);
-        console.log(`User ${socket.id} keluar dari grup ${groupId}`);
+        const sender = db.users.find(u => u.userId === currentUserId);
+        io.to(groupId).emit('message', { ...newMessage, senderUsername: sender ? sender.username : 'Unknown User' });
     });
 
-    // --- WebRTC Signaling (Contoh Dasar, sama seperti sebelumnya) ---
-     socket.on('offer', (data) => {
-        socket.to(data.groupId).emit('offer', { ...data, senderId: currentUserId });
+    socket.on('joinGroup', (groupId) => {
+        if (!currentUserId) return;
+        const group = db.groups.find(g => g.groupId === groupId);
+        if (group && group.members.includes(currentUserId)) socket.join(groupId);
     });
 
-    socket.on('answer', (data) => {
-        socket.to(data.groupId).emit('answer', { ...data, senderId: currentUserId });
-    });
+    socket.on('leaveGroup', (groupId) => socket.leave(groupId));
 
-    socket.on('ice-candidate', (data) => {
-        socket.to(data.groupId).emit('ice-candidate', { ...data, senderId: currentUserId });
-    });
-    // --- Tambahan:  Event untuk memberitahu anggota lain saat ada user baru join/leave ---
+    socket.on('offer', (data) => socket.to(data.groupId).emit('offer', { ...data, senderId: currentUserId }));
+    socket.on('answer', (data) => socket.to(data.groupId).emit('answer', { ...data, senderId: currentUserId }));
+    socket.on('ice-candidate', (data) => socket.to(data.groupId).emit('ice-candidate', { ...data, senderId: currentUserId }));
 
     socket.on('userJoinedGroup', (data) => {
-      const { groupId } = data;
-       const user = db.users.find(u => u.userId === currentUserId);
-
-        io.to(groupId).emit('userJoinedGroup', { groupId, userId: currentUserId, username: user.username }); // Kirim info user
+        const { groupId } = data;
+        const user = db.users.find(u => u.userId === currentUserId);
+        io.to(groupId).emit('userJoinedGroup', { groupId, userId: currentUserId, username: user.username });
     });
+
     socket.on('disconnect', () => {
-        console.log('User terputus:', socket.id);
-          if (currentUserId) {
-            // Beri tahu semua grup tempat user ini berada
-             db.groups.forEach(group => {
-              if(group.members.includes(currentUserId)){
-                io.to(group.groupId).emit('userLeftGroup', { groupId: group.groupId, userId: currentUserId });
-              }
-             });
-          }
+        if (currentUserId) {
+            db.groups.forEach(group => { if (group.members.includes(currentUserId)) io.to(group.groupId).emit('userLeftGroup', { groupId: group.groupId, userId: currentUserId }); });
+        }
     });
-
 });
 
-// --- HTML (Inline) ---
-
 app.get('/', (req, res) => {
-  res.send(`
+    res.send(`
     <!DOCTYPE html>
     <html>
     <head>
       <title>Diskusi App</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
       <style>
-        /* CSS Styling (Lebih Rapi) */
         body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; }
         #container { display: flex; height: 100vh; }
         #sidebar { width: 250px; background-color: #fff; border-right: 1px solid #ddd; overflow-y: auto; }
@@ -260,7 +150,7 @@ app.get('/', (req, res) => {
         #messages-container { flex: 1; overflow-y: auto; padding: 10px; }
         #messages { list-style: none; padding: 0; margin: 0; }
         #messages li { margin-bottom: 8px; padding: 8px; border-radius: 5px; background-color: #fff; }
-        #messages li.me { background-color: #dcf8c6; align-self: flex-end; } /* Pesan dari saya */
+        #messages li.me { background-color: #dcf8c6; align-self: flex-end; }
         #message-form { display: flex; padding: 10px; border-top: 1px solid #ddd; }
         #message-input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px; margin-right: 5px;}
         #send-button { padding: 8px 15px; background-color: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
@@ -274,52 +164,71 @@ app.get('/', (req, res) => {
         #new-group-name { width: 80%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-right: 5px; }
         #create-group-button { padding: 8px 12px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .group-member { margin-left: 5px; background-color: #ddd; padding: 2px 5px; border-radius: 3px; }
-        #video-container{
-          display: flex;
+        #video-container{ display: flex; }
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; border-radius: 10px; display: flex; flex-direction: column; align-items: center;}
+        .modal-content button { margin: 5px; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; width: 80%; }
+        .modal-content .hangup-button { background-color: #f44336; color: white; }
+        .modal-content .control-button { background-color: #2196F3; color: white;}
+         #device-info {margin-left: auto; color: #aaa; font-size: 0.8em;}
+
+        /* Responsiveness */
+        @media (max-width: 768px) {
+            #sidebar { width: 100%; border-right: none; }
+            #chat-area { margin-top: 10px; }
+            #container{flex-direction: column;}
         }
+
       </style>
     </head>
     <body>
-
-      <div id="login-container">
+    <div id="login-container">
         <input type="text" id="username-input" placeholder="Username">
         <input type="password" id="password-input" placeholder="Password">
-        <button id="login-button">Login / Register</button>
+        <button id="login-button"><i class="fas fa-sign-in-alt"></i> Login / Register</button>
     </div>
 
-
-      <div id="container" style="display: none;">  <!-- Awalnya disembunyikan -->
-        <div id="sidebar">
-             <div id="create-group-form">
-                <input type="text" id="new-group-name" placeholder="Nama grup baru">
-                <button id="create-group-button">Buat Grup</button>
-            </div>
-            <ul id="group-list"></ul>
-        </div>
-        <div id="chat-area">
-          <div id="header">
-            <div id="group-name"></div>
-            <div id="call-buttons">
-              <button id="video-call-button" title="Video Call"></button>
-              <button id="voice-call-button" title="Voice Call"></button>
-            </div>
-          </div>
-          <div id="messages-container">
-            <ul id="messages"></ul>
-          </div>
-          <div id="message-form">
-            <input type="text" id="message-input" placeholder="Ketik pesan...">
-            <button id="send-button">Kirim</button>
-          </div>
-        </div>
-         <div id="video-container"></div>
+  <div id="container" style="display: none;">
+    <div id="sidebar">
+      <div id="create-group-form">
+        <input type="text" id="new-group-name" placeholder="Nama grup baru">
+        <button id="create-group-button"><i class="fas fa-plus"></i> Buat Grup</button>
       </div>
+      <ul id="group-list"></ul>
+    </div>
+    <div id="chat-area">
+    <div id="header">
+        <div id="group-name"></div>
+        <div id="call-buttons">
+            <button id="video-call-button" title="Video Call"><i class="fas fa-video"></i></button>
+              <button id="voice-call-button" title="Voice Call"><i class="fas fa-phone"></i></button>
+              <span id="device-info"></span>
+        </div>
+    </div>
+      <div id="messages-container">
+        <ul id="messages"></ul>
+      </div>
+      <div id="message-form">
+        <input type="text" id="message-input" placeholder="Ketik pesan...">
+        <button id="send-button"><i class="fas fa-paper-plane"></i> Kirim</button>
+      </div>
+    </div>
+    <div id="video-container"></div>
+  </div>
 
-      <script src="/socket.io/socket.io.js"></script>
+
+    <div id="call-modal" class="modal">
+        <div class="modal-content">
+            <button class="hangup-button" id="hangup-button"><i class="fas fa-phone-slash"></i> Akhiri Panggilan</button>
+            <button class="control-button" id="toggle-audio-button"><i class="fas fa-microphone"></i> <span id="audio-text">Bisukan Audio</span></button>
+            <button class="control-button" id="toggle-video-button"><i class="fas fa-video"></i> <span id="video-text">Matikan Video</span> </button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
       <script>
         const socket = io();
 
-        // --- Elemen UI ---
         const loginContainer = document.getElementById('login-container');
         const usernameInput = document.getElementById('username-input');
         const passwordInput = document.getElementById('password-input');
@@ -338,19 +247,55 @@ app.get('/', (req, res) => {
         const newGroupNameInput = document.getElementById('new-group-name');
         const createGroupButton = document.getElementById('create-group-button');
         const videoContainer = document.getElementById('video-container');
-
+        const callModal = document.getElementById('call-modal');
+        const hangupButton = document.getElementById('hangup-button');
+        const toggleAudioButton = document.getElementById('toggle-audio-button');
+        const toggleVideoButton = document.getElementById('toggle-video-button');
+        const deviceInfoDisplay = document.getElementById('device-info');
+        const audioText = document.getElementById('audio-text');  // Tambahkan ini
+        const videoText = document.getElementById('video-text'); // Tambahkan ini
 
         let currentUserId = null;
         let currentGroupId = null;
+        let localStream;
+        let peerConnections = {};
+        let isAudioMuted = false;
+        let isVideoMuted = false;
 
-        // --- Login/Register ---
-          loginButton.addEventListener('click', async () => {
+
+        function detectDevice() {
+            const userAgent = navigator.userAgent;
+            let device = 'Unknown';
+
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+                device = 'Mobile';
+            } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                device = 'iOS Device';
+            }
+            else if (/Tablet|iPad/i.test(userAgent)) {
+                device = 'Tablet';
+            } else if (/Linux/.test(userAgent)) {
+                device = 'Linux Desktop';
+            }
+            else if (/Win/.test(userAgent)) {
+                device = 'Windows Desktop';
+            } else if (/Mac/.test(userAgent)) {
+                device = 'Mac Desktop';
+            }
+
+            deviceInfoDisplay.textContent = device;
+        }
+
+        detectDevice();
+
+
+        loginButton.addEventListener('click', async () => {
             const username = usernameInput.value;
             const password = passwordInput.value;
 
-            if(!username || !password){
-              alert('isi semua form.');
-              return;
+            if (!username || !password) {
+                alert('isi semua form.');
+                return;
             }
 
             const response = await fetch('/api/login', {
@@ -362,54 +307,39 @@ app.get('/', (req, res) => {
             if (response.ok) {
                 const data = await response.json();
                 currentUserId = data.userId;
-                // alert('Login berhasil!  UserID: ' + currentUserId);
-                loginContainer.style.display = 'none'; // Sembunyikan form login
-                container.style.display = 'flex';    // Tampilkan area chat
-
-                //  Setelah login berhasil, minta daftar grup
+                loginContainer.style.display = 'none';
+                container.style.display = 'flex';
                 fetchGroups();
-
                 socket.emit('login', { userId: currentUserId });
-
             } else {
                 const errorData = await response.json();
                 alert('Login gagal: ' + errorData.message);
             }
         });
 
-
-        // --- Fungsi untuk Load History Chat ---
         function loadChatHistory(groupId) {
             fetch('/api/history/' + groupId)
                 .then(response => response.json())
                 .then(history => {
-                    messagesList.innerHTML = ''; // Bersihkan pesan sebelumnya
+                    messagesList.innerHTML = '';
                     history.forEach(message => addMessageToUI(message));
                 })
                 .catch(error => console.error('Error loading history:', error));
         }
-        // --- Fungsi untuk Menambahkan Pesan ke UI ---
+
         function addMessageToUI(message) {
-          const li = document.createElement('li');
-          li.textContent = \`\${message.senderUsername}: \${message.messageText} (\${new Date(message.timestamp).toLocaleString()})\`;
-           // Cek apakah pesan ini dari user yang sedang login
-            if (message.senderId === currentUserId) {
-                li.classList.add('me'); // Tambahkan class 'me'
-            }
-          messagesList.appendChild(li);
-          messagesList.scrollTop = messagesList.scrollHeight; // Auto-scroll ke bawah
+            const li = document.createElement('li');
+            li.textContent = \`\${message.senderUsername}: \${message.messageText} (\${new Date(message.timestamp).toLocaleString()})\`;
+            if (message.senderId === currentUserId) li.classList.add('me');
+            messagesList.appendChild(li);
+            messagesList.scrollTop = messagesList.scrollHeight;
         }
 
-       // --- Event: Menerima Pesan Baru ---
         socket.on('message', (message) => {
-             // Cek apakah pesan ini untuk grup yang sedang aktif
-            if (message.groupId === currentGroupId) {
-                addMessageToUI(message);
-            }
+            if (message.groupId === currentGroupId) addMessageToUI(message);
         });
 
-        // --- Kirim Pesan ---
-         sendButton.addEventListener('click', () => {
+        sendButton.addEventListener('click', () => {
             const text = messageInput.value;
             if (text.trim() !== '' && currentGroupId) {
                 socket.emit('chatMessage', { groupId: currentGroupId, messageText: text });
@@ -417,38 +347,27 @@ app.get('/', (req, res) => {
             }
         });
 
-        // --- Event: User bergabung ke grup (dari server) ---
         socket.on('userJoinedGroup', (data) => {
-          //  if (data.groupId === currentGroupId) {
-                console.log(\`User \${data.username} bergabung ke grup \${data.groupId}\`);
-                // Tambahkan notifikasi ke UI (opsional)
-          //  }
+            if (data.groupId === currentGroupId) console.log(\`User \${data.username} bergabung ke grup \${data.groupId}\`);
         });
 
-         // --- Event: User keluar dari grup (dari server) ---
         socket.on('userLeftGroup', (data) => {
-             if (data.groupId === currentGroupId) {
-                console.log(\`User \${data.userId} keluar dari grup \${data.groupId}\`);
-                // Update UI (misalnya, hapus user dari daftar anggota)
-            }
+            if (data.groupId === currentGroupId) console.log(\`User \${data.userId} keluar dari grup \${data.groupId}\`);
         });
 
-        // --- Fungsi untuk Menampilkan Daftar Grup ---
-
-         function displayGroups(groups) {
-            groupList.innerHTML = ''; // Bersihkan daftar grup
+        function displayGroups(groups) {
+            groupList.innerHTML = '';
             groups.forEach(group => {
                 const listItem = document.createElement('li');
                 listItem.classList.add('group-item')
                 listItem.textContent = group.groupName;
 
-                // Tampilkan anggota grup (jika ada)
-                if(group.memberUsernames){
+                if (group.memberUsernames) {
                     group.memberUsernames.forEach(username => {
-                      const memberSpan = document.createElement('span');
-                      memberSpan.classList.add('group-member');
-                      memberSpan.textContent = username;
-                      listItem.appendChild(memberSpan)
+                        const memberSpan = document.createElement('span');
+                        memberSpan.classList.add('group-member');
+                        memberSpan.textContent = username;
+                        listItem.appendChild(memberSpan)
                     });
                 }
 
@@ -456,146 +375,164 @@ app.get('/', (req, res) => {
                     currentGroupId = group.groupId;
                     groupNameDisplay.textContent = group.groupName;
                     loadChatHistory(currentGroupId);
-                    socket.emit('joinGroup', currentGroupId); // Join grup yang dipilih
+                    socket.emit('joinGroup', currentGroupId);
                 });
                 groupList.appendChild(listItem);
             });
         }
 
-        // --- Fungsi untuk Mengambil Daftar Grup dari Server ---
         function fetchGroups() {
             fetch('/api/groups')
                 .then(response => response.json())
-                .then(groups => {
-                    displayGroups(groups);
-                })
+                .then(groups => displayGroups(groups))
                 .catch(error => console.error('Error fetching groups:', error));
         }
-         // --- Buat Grup Baru ---
+
         createGroupButton.addEventListener('click', () => {
             const groupName = newGroupNameInput.value;
-             if (groupName.trim() !== '' && currentUserId) {
+            if (groupName.trim() !== '' && currentUserId) {
                 fetch('/api/groups', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ groupName, userId: currentUserId }),
                 })
-                .then(response => response.json())
-                .then(newGroup => {
-                    // Tambahkan grup baru ke daftar (tanpa perlu fetch ulang)
-                    displayGroups([newGroup]); // Langsung tambahkan ke UI
-                    newGroupNameInput.value = ''; // Kosongkan input
-
-                     // Emit event ke server bahwa user membuat grup baru
-                    socket.emit('userJoinedGroup', { groupId: newGroup.groupId });
-                })
-                .catch(error => console.error('Error creating group:', error));
+                    .then(response => response.json())
+                    .then(newGroup => {
+                        displayGroups([newGroup]);
+                        newGroupNameInput.value = '';
+                        socket.emit('userJoinedGroup', { groupId: newGroup.groupId });
+                    })
+                    .catch(error => console.error('Error creating group:', error));
             }
         });
 
-         // --- WebRTC (Sama seperti sebelumnya, dengan sedikit perbaikan) ---
-        let localStream;
-        let peerConnections = {}; // Menyimpan RTCPeerConnection, key adalah userId
-
-         async function startCall(isInitiator, callType) {
-          try {
-              localStream = await navigator.mediaDevices.getUserMedia({
-                  video: callType === 'video', // Hanya video jika video call
-                  audio: true
-              });
-
-              // Tampilkan local video
-              const localVideo = document.createElement('video');
-              localVideo.srcObject = localStream;
-              localVideo.autoplay = true;
-              localVideo.muted = true; // Mute local video
-              videoContainer.appendChild(localVideo);
 
 
+       async function startCall(isInitiator, callType) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: callType === 'video',
+                    audio: true
+                });
 
-              // Buat offer jika pemanggil pertama
-              if (isInitiator) {
-                  // Kirim offer ke semua anggota grup (simplified, idealnya kirim ke user tertentu)
+                const localVideo = document.createElement('video');
+                localVideo.srcObject = localStream;
+                localVideo.autoplay = true;
+                localVideo.muted = true;
+                videoContainer.appendChild(localVideo);
+
+                if (isInitiator) {
                   socket.emit('offer', { groupId: currentGroupId, callType });
-              }
+                }
 
-          } catch (err) {
-              console.error("Error accessing media:", err);
-              alert("Gagal mengakses kamera/mikrofon: " + err.message);
-          }
-      }
-
-        // --- Signaling Handlers ---
-       socket.on('offer', async (data) => {
-        if (data.senderId === currentUserId) return; // Jangan proses offer dari diri sendiri
-
-        const pc = new RTCPeerConnection();
-        peerConnections[data.senderId] = pc;
-
-        // Add local stream to PC
-        if(localStream){
-          localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-        }
+               callModal.style.display = "block";
 
 
-        // Set remote description dari offer
-        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-
-        // Buat answer
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        // Kirim answer ke pengirim offer
-        socket.emit('answer', { groupId: currentGroupId, answer, to: data.senderId });
-
-        // --- ICE Candidate Handling ---
-
-        pc.onicecandidate = event => {
-            if (event.candidate) {
-                socket.emit('ice-candidate', { groupId: currentGroupId, candidate: event.candidate, to: data.senderId });
+            } catch (err) {
+                console.error("Error accessing media:", err);
+                alert("Gagal mengakses kamera/mikrofon: " + err.message);
             }
-        };
-
-        // --- Handle Remote Stream ---
-        pc.ontrack = event => {
-            const remoteVideo = document.createElement('video');
-            remoteVideo.srcObject = event.streams[0];
-            remoteVideo.autoplay = true;
-            videoContainer.appendChild(remoteVideo);
-        };
-    });
-
-      socket.on('answer', async (data) => {
-        if (data.senderId === currentUserId) return; // Jangan proses answer dari diri sendiri
-        const pc = peerConnections[data.senderId];
-        if (pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
-    });
 
-    socket.on('ice-candidate', async (data) => {
-       if (data.senderId === currentUserId) return; //  Jangan proses ice candidate dari diri sendiri
-        const pc = peerConnections[data.senderId];
-        if (pc) {
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        socket.on('offer', async (data) => {
+            if (data.senderId === currentUserId) return;
+
+            const pc = new RTCPeerConnection();
+            peerConnections[data.senderId] = pc;
+
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            }
+
+            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('answer', { groupId: currentGroupId, answer, to: data.senderId });
+
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', { groupId: currentGroupId, candidate: event.candidate, to: data.senderId });
+                }
+            };
+
+            pc.ontrack = event => {
+                const remoteVideo = document.createElement('video');
+                remoteVideo.srcObject = event.streams[0];
+                remoteVideo.autoplay = true;
+                videoContainer.appendChild(remoteVideo);
+            };
+              callModal.style.display = "block";
+        });
+
+        socket.on('answer', async (data) => {
+            if (data.senderId === currentUserId) return;
+            const pc = peerConnections[data.senderId];
+            if (pc) await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            if (data.senderId === currentUserId) return;
+            const pc = peerConnections[data.senderId];
+            if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        });
+
+       function toggleAudio() {
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                    isAudioMuted = !track.enabled;
+                });
+                audioText.textContent = isAudioMuted ? 'Bunyikan Audio' : 'Bisukan Audio';
+                // Ganti ikon
+                toggleAudioButton.innerHTML = isAudioMuted ? '<i class="fas fa-microphone-slash"></i> ' + audioText.textContent : '<i class="fas fa-microphone"></i> ' + audioText.textContent;
+            }
         }
-    });
 
-        // --- Tombol Panggilan ---
-          videoCallButton.addEventListener('click', () => {
-              startCall(true, 'video'); // true = initiator, 'video' = tipe panggilan
-          });
+        function toggleVideo() {
+            if (localStream) {
+                localStream.getVideoTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                    isVideoMuted = !track.enabled
+                });
+                videoText.textContent = isVideoMuted ? 'Hidupkan Video' : 'Matikan Video';
 
-          voiceCallButton.addEventListener('click', () => {
-              startCall(true, 'audio'); // true = initiator, 'audio' = tipe panggilan
-          });
-      </script>
+                // Ganti ikon
+                toggleVideoButton.innerHTML = isVideoMuted ? '<i class="fas fa-video-slash"></i> ' + videoText.textContent : '<i class="fas fa-video"></i> ' + videoText.textContent;
+            }
+        }
+         function endCall() {
+            for (let userId in peerConnections) {
+                if (peerConnections.hasOwnProperty(userId)) {
+                    peerConnections[userId].close();
+                }
+            }
+            peerConnections = {};
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            while (videoContainer.firstChild) {
+                videoContainer.removeChild(videoContainer.firstChild);
+            }
+
+            callModal.style.display = 'none';
+        }
+
+
+        videoCallButton.addEventListener('click', () => startCall(true, 'video'));
+        voiceCallButton.addEventListener('click', () => startCall(true, 'audio'));
+        hangupButton.addEventListener('click', endCall);
+        toggleAudioButton.addEventListener('click', toggleAudio);
+        toggleVideoButton.addEventListener('click', toggleVideo);
+
+    </script>
     </body>
     </html>
   `);
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server berjalan di port ${PORT}`);
-});
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
